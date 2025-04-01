@@ -5,3 +5,5 @@ matplotlib>=3.9.0
 nbconvert>=7.16.4
 plotly>=5.22.0
 packaging<24
+matplotlib
+
