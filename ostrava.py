@@ -1,3 +1,5 @@
+
+
 import random
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -29,7 +31,7 @@ class Person:
         else:
             self.accommodation = 'Undefined'
 
-# Define function to generate people and plot housing choices
+# Function to generate persons and plot housing choices
 def create_persons_and_plot(num_persons, education_probs, employment_probs, income_min, income_max, social_status_probs, relatives_abroad_prob):
     persons = []
     accommodation_counts = {key: 0 for key in ['Luxury Apartment', 'Standard Apartment', 'Shared Housing', 'House', 'Public Housing', 'Undefined']}
@@ -55,7 +57,6 @@ def create_persons_and_plot(num_persons, education_probs, employment_probs, inco
     ax.set_ylabel('Number of People')
     ax.set_title(f'Accommodation Choices of {num_persons} People')
 
-    # Add text annotations
     for bar in bars:
         height = bar.get_height()
         ax.annotate(f'{height}', xy=(bar.get_x() + bar.get_width() / 2, height), xytext=(0, 3), textcoords="offset points", ha='center', va='bottom')
@@ -63,52 +64,63 @@ def create_persons_and_plot(num_persons, education_probs, employment_probs, inco
     st.pyplot(fig)
     return persons, accommodation_counts
 
-# Function to plot resource usage
-def plot_resource_usage(resource, usage_counts, labels):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    bars = ax.bar(labels, usage_counts, color=['blue', 'green', 'red', 'purple', 'orange', 'gray'])
-    ax.set_xlabel('Accommodation Type')
-    ax.set_ylabel(f'{resource} Usage')
-    ax.set_title(f'{resource} Usage by Accommodation Type')
-
-    # Add text annotations
-    for bar in bars:
-        height = bar.get_height()
-        ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height), xytext=(0, 3), textcoords="offset points", ha='center', va='bottom')
-
-    st.pyplot(fig)
-
 # Function to calculate total resource usage
 def calculate_resource_usage(persons):
     accommodation_needs = {
-        'Luxury Apartment': {'water': 89.2, 'electricity': 14.7, 'land': 134},
-        'House': {'water': 89.2, 'electricity': 14.7, 'land': 120},
-        'Standard Apartment': {'water': 89.2, 'electricity': 14.7, 'land': 32},
-        'Shared Housing': {'water': 89.2, 'electricity': 14.7, 'land': 16},
-        'Public Housing': {'water': 89.2, 'electricity': 14.7, 'land': 12},
+        'Luxury Apartment': {'water': 125, 'electricity': 20, 'land': 134},
+        'House': {'water': 100, 'electricity': 16, 'land': 120},
+        'Standard Apartment': {'water': 95, 'electricity': 14, 'land': 32},
+        'Shared Housing': {'water': 60, 'electricity': 12, 'land': 16},
+        'Public Housing': {'water': 40, 'electricity': 10, 'land': 12},
         'Undefined': {'water': 0, 'electricity': 0, 'land': 0},
     }
 
-    accommodation_water = {key: 0 for key in accommodation_needs}
-    accommodation_electricity = {key: 0 for key in accommodation_needs}
-    accommodation_land = {key: 0 for key in accommodation_needs}
+    total_water = sum(accommodation_needs[person.accommodation]['water'] for person in persons)
+    total_electricity = sum(accommodation_needs[person.accommodation]['electricity'] for person in persons)
+    total_land = sum(accommodation_needs[person.accommodation]['land'] for person in persons)
 
-    for person in persons:
-        needs = accommodation_needs[person.accommodation]
-        accommodation_water[person.accommodation] += needs['water']
-        accommodation_electricity[person.accommodation] += needs['electricity']
-        accommodation_land[person.accommodation] += needs['land']
+    return total_water, total_electricity, total_land
 
-    return accommodation_water, accommodation_electricity, accommodation_land
+# Function to plot remaining resources
+def plot_remaining_resources(total_water, total_electricity, total_land):
+    # Available resources
+    max_water = 875765 # litres
+    max_electricity = 66.45 * 1e6  # kWh (converted from GWh)
+    max_land = 30 * 1e6  # sqm (converted from sqkm)
+
+    # Calculate remaining resources and percentages
+    remaining_water = max(0, max_water - total_water)
+    remaining_electricity = max(0, max_electricity - total_electricity)
+    remaining_land = max(0, max_land - total_land)
+
+    resources = ['Water (L)', 'Electricity (kWh)', 'Land (sqm)']
+    used = [total_water, total_electricity, total_land]
+    remaining = [remaining_water, remaining_electricity, remaining_land]
+    max_values = [max_water, max_electricity, max_land]
+
+    percentages_remaining = [(r / m) * 100 for r, m in zip(remaining, max_values)]
+    colors = ['green' if p > 50 else 'yellow' if p > 25 else 'red' for p in percentages_remaining]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bars = ax.bar(resources, percentages_remaining, color=colors)
+    ax.set_ylabel('Remaining Resources (%)')
+    ax.set_title('Resource Availability After Migration')
+
+    for bar, percent in zip(bars, percentages_remaining):
+        ax.annotate(f'{percent:.2f}%', xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()), xytext=(0, 3), textcoords="offset points", ha='center', va='bottom')
+
+    st.pyplot(fig)
 
 # Streamlit UI
 st.title('Ostrava Migrants')
-st.subheader('Migrants arrived due to a new foriegn company')
+st.subheader('Migrants arrived due to a new foreign company')
 
+# Interactive sliders for dynamic control
 num_persons = st.number_input('Number of Persons', min_value=1, step=1, value=10000)
 income_min = st.number_input('Minimum Salary (kc)', min_value=0, value=18000)
 income_max = st.number_input('Maximum Salary (kc)', min_value=0, value=100000)
 
+# Education probabilities
 education_probs = [
     st.slider('No Education Probability', 0.0, 1.0, 0.02),
     st.slider('Primary Education Probability', 0.0, 1.0, 0.04),
@@ -116,28 +128,31 @@ education_probs = [
     st.slider('Higher Education Probability', 0.0, 1.0, 0.70)
 ]
 
+# Employment probabilities
 employment_probs = [
     st.slider('Employed Probability', 0.0, 1.0, 0.9),
     st.slider('Unemployed Probability', 0.0, 1.0, 0.1)
 ]
 
+# Social Status probabilities
 social_status_probs = [
     st.slider('Single Probability', 0.0, 1.0, 0.50),
     st.slider('Family Probability', 0.0, 1.0, 0.50)
 ]
 
+# Relatives abroad probability
 relatives_abroad_prob = st.slider('Relatives Abroad Probability', 0.0, 1.0, 0.50)
 
+# Run the model when the button is pressed
 if st.button('Run Model'):
-    persons, accommodation_counts = create_persons_and_plot(num_persons, education_probs, employment_probs, income_min, income_max, social_status_probs, relatives_abroad_prob)
-    accommodation_water, accommodation_electricity, accommodation_land = calculate_resource_usage(persons)
+    persons, _ = create_persons_and_plot(num_persons, education_probs, employment_probs, income_min, income_max, social_status_probs, relatives_abroad_prob)
+    total_water, total_electricity, total_land = calculate_resource_usage(persons)
 
-    # Display graphical representations
-    plot_resource_usage('Water (liters)', list(accommodation_water.values()), list(accommodation_water.keys()))
-    plot_resource_usage('Electricity (kWh)', list(accommodation_electricity.values()), list(accommodation_electricity.keys()))
-    plot_resource_usage('Land (sqm)', list(accommodation_land.values()), list(accommodation_land.keys()))
+    # Display total usage
+    st.write(f"Total Water Usage: {total_water:.2f} Litres/day")
+    st.write(f"Total Electricity Usage: {total_electricity:.2f} kWh/day")
+    st.write(f"Total Land Required: {total_land:.2f} sqm")
 
-    # Show total resource usage
-    st.write(f"Total Water Usage: {sum(accommodation_water.values()):.2f} liters per day")
-    st.write(f"Total Electricity Usage: {sum(accommodation_electricity.values()):.2f} kWh per day")
-    st.write(f"Total Land Required: {sum(accommodation_land.values()):.2f} sqm")
+    # Plot remaining resources
+    plot_remaining_resources(total_water, total_electricity, total_land)
+
